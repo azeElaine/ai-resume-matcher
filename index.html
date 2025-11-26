@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 简历智能解析与匹配</title>
+    <style>
+        :root { --primary: #4f46e5; --bg: #f3f4f6; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); display: flex; justify-content: center; padding: 20px; }
+        .container { background: white; width: 800px; padding: 30px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        h1 { color: #333; text-align: center; }
+        .form-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 8px; font-weight: bold; }
+        textarea { width: 100%; height: 100px; padding: 10px; border: 1px solid #ddd; border-radius: 6px; }
+        input[type="file"] { border: 1px solid #ddd; padding: 10px; width: 100%; border-radius: 6px; }
+        button { background: var(--primary); color: white; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; width: 100%; font-size: 16px; }
+        button:hover { opacity: 0.9; }
+        button:disabled { background: #ccc; }
+        #result { margin-top: 30px; display: none; }
+        .card { background: #f9fafb; padding: 20px; border-radius: 8px; margin-bottom: 15px; border-left: 4px solid var(--primary); }
+        .score-circle { float: right; width: 50px; height: 50px; background: var(--primary); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; }
+        pre { background: #2d2d2d; color: #ccc; padding: 10px; border-radius: 6px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 AI 简历匹配助手</h1>
+        
+        <div class="form-group">
+            <label>1. 上传简历 (PDF)</label>
+            <input type="file" id="resumeFile" accept=".pdf">
+        </div>
+
+        <div class="form-group">
+            <label>2. 岗位描述 (JD) - 可选，用于评分</label>
+            <textarea id="jdText" placeholder="请输入职位要求，例如：需要Python熟练，3年经验..."></textarea>
+        </div>
+
+        <button onclick="analyzeResume()" id="btn">开始分析</button>
+
+        <div id="result">
+            <h2>分析结果</h2>
+            
+            <div class="card" id="matchCard" style="display:none;">
+                <div class="score-circle" id="scoreVal">0</div>
+                <h3>岗位匹配度</h3>
+                <p id="matchAnalysis"></p>
+            </div>
+
+            <div class="card">
+                <h3>👤 基本信息提取</h3>
+                <ul id="infoList"></ul>
+            </div>
+
+            <details>
+                <summary>查看原始 JSON</summary>
+                <pre id="jsonRaw"></pre>
+            </details>
+        </div>
+    </div>
+
+    <script>
+        // !!! 替换为你的阿里云函数计算 URL !!!
+        const API_URL = "http://60.205.226.127:9000/analyze";
+
+        async function analyzeResume() {
+            const fileInput = document.getElementById('resumeFile');
+            const jdText = document.getElementById('jdText').value;
+            const btn = document.getElementById('btn');
+            const resultDiv = document.getElementById('result');
+
+            if (!fileInput.files[0]) { alert("请先上传 PDF 简历"); return; }
+
+            btn.disabled = true;
+            btn.innerText = "AI 正在分析中 (约 5-10秒)...";
+            resultDiv.style.display = 'none';
+
+            const formData = new FormData();
+            formData.append('resume', fileInput.files[0]);
+            formData.append('jd_text', jdText);
+
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (!response.ok) throw new Error("Server Error");
+                
+                const data = await response.json();
+                renderData(data);
+                resultDiv.style.display = 'block';
+
+            } catch (e) {
+                alert("请求失败: " + e.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerText = "开始分析";
+            }
+        }
+
+        function renderData(data) {
+            // 渲染基本信息
+            const info = data.extracted_info || {};
+            const listHtml = `
+                <li><strong>姓名:</strong> ${info.name || '未识别'}</li>
+                <li><strong>电话:</strong> ${info.phone || '未识别'}</li>
+                <li><strong>邮箱:</strong> ${info.email || '未识别'}</li>
+                <li><strong>学历:</strong> ${info.education || '未识别'}</li>
+                <li><strong>技能:</strong> ${JSON.stringify(info.skills) || '未识别'}</li>
+            `;
+            document.getElementById('infoList').innerHTML = listHtml;
+
+            // 渲染匹配度
+            const match = data.match_result || {};
+            if (match.score) {
+                document.getElementById('matchCard').style.display = 'block';
+                document.getElementById('scoreVal').innerText = match.score;
+                document.getElementById('matchAnalysis').innerText = match.analysis;
+            } else {
+                document.getElementById('matchCard').style.display = 'none';
+            }
+
+            // 原始 JSON
+            document.getElementById('jsonRaw').innerText = JSON.stringify(data, null, 2);
+        }
+    </script>
+</body>
+</html>

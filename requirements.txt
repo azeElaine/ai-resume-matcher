@@ -1,0 +1,5 @@
+flask==3.0.0
+pdfplumber==0.10.3
+dashscope==1.14.0
+redis==5.0.1
+flask-cors==4.0.0
